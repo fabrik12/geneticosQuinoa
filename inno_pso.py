@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 # Importa la función de utilidad del modelo
 from modelo import calcular_utilidad
 
+
+DEMANDA = 150
+
 # --- 0. Definición de la Función Objetivo para PSO ---
 
 # --- Función de verificación (la misma que usamos en el AG) ---
@@ -16,7 +19,7 @@ def verificar_condiciones(particula):
     x1, x2 = particula[0], particula[1]
     
     # Asumimos x3 (Z) = 75 para la restricción compleja
-    Z = 75 
+    Z = DEMANDA 
     X4 = 0.25 # Constante de la competencia
 
     condicion_x1 = x1 <= 100
@@ -63,52 +66,36 @@ def funcion_objetivo_pso(particulas):
 
 # --- 2. Configuración y Ejecución del Optimizador PSO ---
 
-if __name__ == '__main__':
-    print("\n--- Ejecutando Optimizador por Enjambre de Partículas (PSO) ---")
-    
-    # Opciones del optimizador
-    # 'c1', 'c2' y 'w' son los hiperparámetros estándar de PSO.
-    # c1: factor cognitivo (peso de la mejor posición personal)
-    # c2: factor social (peso de la mejor posición global)
-    # w: inercia (controla la exploración)
+def ejecutar_experimento_pso():
     options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-
-    # Límites del problema (las variables que queremos optimizar)
-    # Dimension 0: x1 (tierra)
-    # Dimension 1: x2 (precio)
-    
-    # Límites (bounds): x1 se optimiza como flotante, pero se evalúa como entero
     min_bounds = [1.0, 11.0] 
     max_bounds = [100.0, 35.0]
     bounds = (np.array(min_bounds), np.array(max_bounds))
 
-    # Crear una instancia del optimizador GlobalBestPSO
-    # n_particles: número de partículas en el enjambre.
-    # dimensions: número de variables a optimizar (x1 y x2, entonces son 2).
     optimizer = ps.single.GlobalBestPSO(n_particles=100, dimensions=2, options=options, bounds=bounds)
-
-    # Ejecutar la optimización
-    # iters: número de iteraciones (equivalente a las generaciones del AG)
-    costo_optimo, pos_optima = optimizer.optimize(funcion_objetivo_pso, iters=50, verbose=True)
-
-    # --- 3. Presentación de Resultados ---
     
-    # Costo óptimo es la utilidad negativa
-    max_utilidad_pso = -costo_optimo
+    # IMPORTANTE: Verbose a False para no imprimir 50 líneas en cada una de las N ejecuciones
+    costo_optimo, pos_optima = optimizer.optimize(funcion_objetivo_pso, iters=50, verbose=False)
+    
+    max_utilidad = -costo_optimo
+    
+    # Devolver un diccionario con los resultados clave
+    return {
+        "utilidad_maxima": max_utilidad,
+        "mejor_x1": np.round(pos_optima[0]),
+        "mejor_x2": pos_optima[1],
+        "historial_costo": optimizer.cost_history # Para la gráfica de convergencia
+    }
 
-    # Redondeo de x1 final para el reporte
-    x1_final = np.round(pos_optima[0])
-    x2_final = pos_optima[1]
 
+if __name__ == '__main__':
+    print("\n--- Ejecutando una sola prueba del Optimizador PSO ---")
+    resultado = ejecutar_experimento_pso()
     print("\nResultados del Optimizador PSO:")
-    print(f"  Mejor posición encontrada (x1, x2)")
-    print(f"    x1 (tierra) = {x1_final}")
-    print(f"    x2 (precio) = {x2_final:.2f}")
-    print(f"  Máxima utilidad encontrada: {max_utilidad_pso:.2f}")
+    print(f"  Máxima utilidad encontrada: {resultado['utilidad_maxima']:.2f}")
+    print(f"  Mejor x1: {resultado['mejor_x1']:.2f}")
+    print(f"  Mejor x2: {resultado['mejor_x2']:.2f}")
 
-    # Graficar el historial de costos (la convergencia del enjambre)
-    plot_cost_history(cost_history=optimizer.cost_history)
-    plt.ylabel("Mejor Utilidad Negativa (Costo)")
-    plt.xlabel("Iteración")
-    plt.title("Convergencia del Algoritmo PSO")
+    # Graficar
+    plot_cost_history(cost_history=resultado['historial_costo'])
     plt.show()
