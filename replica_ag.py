@@ -35,13 +35,46 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 # --- 3. Definición de Operadores Genéticos ---
 
-# Función de evaluación (Fitness Function)
-def evaluar_individuo(individual):
+# --- NUEVA FUNCIÓN DE VERIFICACIÓN ---
+def verificar_condiciones(individual):
+    """
+    Verifica si un individuo cumple las restricciones del paper.
+    Basado en: Function condition(X, Y, Z)
+    Donde: X=x1, Y=x2, Z=x3 (x3 no es un gen, lo asumimos válido para la prueba)
+    """
     x1, x2 = individual[0], individual[1]
-    # ¡Importante! La función de utilidad es el objetivo
-    return (calcular_utilidad(x1, x2),) # DEAP espera una tupla
+    
+    # La restricción del paper depende de X3 (demanda), que no es parte de nuestro individuo.
+    # Para el propósito de la validación del AG, nos enfocaremos en la restricción
+    # más simple que sí podemos verificar: x1 <= 100
+    # X4 es una constante
+    X4 = 0.25
 
-toolbox.register("evaluate", evaluar_individuo)
+    # Asumimos un valor promedio para Z (x3) para poder usar la fórmula completa
+    # Por ejemplo, la mitad del rango, 75. Esto es una simplificación necesaria.
+    Z = 75 
+    
+    # Aplicamos las condiciones del paper 
+    condicion_x1 = x1 <= 100
+    condicion_x2 = x2 <= (34 - (20.4 * x1) / Z + 17 * X4)
+    
+    return condicion_x1 and condicion_x2
+
+
+# --- FUNCIÓN DE EVALUACIÓN ACTUALIZADA ---
+def evaluar_individuo_con_penalizacion(individual):
+    """
+    Evalúa la aptitud de un individuo.
+    Si no es válido, su aptitud es 0.
+    """
+    if not verificar_condiciones(individual):
+        return (0,)  # Penalización: aptitud nula si viola las restricciones
+    
+    # Si es válido, calcula la utilidad normal
+    x1, x2 = individual[0], individual[1]
+    return (calcular_utilidad(x1, x2),)
+
+toolbox.register("evaluate", evaluar_individuo_con_penalizacion)
 
 # Operadores de Cruce y Mutación (usando los parámetros del paper)
 toolbox.register("mate", tools.cxBlend, alpha=0.5) # Cruce de mezcla
