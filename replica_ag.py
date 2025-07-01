@@ -4,11 +4,11 @@ import random
 import numpy as np
 from deap import base, creator, tools, algorithms
 
-# Importando la función de utilidad del modelo
+# Importa la función de utilidad del modelo
 from modelo import calcular_utilidad 
 
 # --- 1. Configuración del Problema (Maximización) ---
-# Se crea un tipo 'FitnessMax' que hereda de 'base.Fitness' y tiene un peso de 1.0 (para maximizar).
+# Se crea un tipo 'FitnessMax' que hereda de 'base.Fitness' y tiene un peso de 1.0 (maximizacion).
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 # Se crea un tipo 'Individual' que es una lista y tiene un atributo de fitness del tipo 'FitnessMax'.
 creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -16,9 +16,9 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 # --- 2. Inicialización de la Caja de Herramientas (Toolbox) ---
 toolbox = base.Toolbox()
 
-# Un 'individuo' en nuestro problema tiene 2 genes: x1 (tierra) y x2 (precio).
-# Definimos los límites para cada gen.
-# x1: [1, 100], x2: [11, ~30] (El precio debe ser > 11 para no generar pérdidas)
+# Un 'individuo' en el problema tiene 2 genes: x1 (tierra) y x2 (precio).
+# Se definen los límites para cada gen.
+# x1: [1, 100], x2: [11, ~30] (El precio debe ser > 11 para no generar pérdidas) IMPORTANTE
 LOW_X1_INT, UP_X1_INT = 1, 100
 LOW_X2, UP_X2 = 11.0, 35.0 # Usamos un rango razonable para el precio
 
@@ -27,7 +27,7 @@ toolbox.register("attr_x1", random.randint, LOW_X1_INT, UP_X1_INT)
 toolbox.register("attr_x2", random.uniform, LOW_X2, UP_X2)
 
 # Estructura del individuo y la población
-# Un individuo se crea llamando a 'tools.initCycle' que llenará un contenedor 'creator.Individual'
+# Un individuo se crea llamando a 'tools.initCycle' que llena un contenedor 'creator.Individual'
 # con una secuencia de llamadas a 'attr_x1' y 'attr_x2'.
 toolbox.register("individual", tools.initCycle, creator.Individual, 
                  (toolbox.attr_x1, toolbox.attr_x2), n=1)
@@ -35,7 +35,7 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 # --- 3. Definición de Operadores Genéticos ---
 
-# --- NUEVA FUNCIÓN DE VERIFICACIÓN ---
+# --- FUNCIÓN DE VERIFICACIÓN DE RESTRICCIONES ---
 def verificar_condiciones(individual):
     """
     Verifica si un individuo cumple las restricciones del paper.
@@ -44,17 +44,17 @@ def verificar_condiciones(individual):
     """
     x1, x2 = individual[0], individual[1]
     
-    # La restricción del paper depende de X3 (demanda), que no es parte de nuestro individuo.
-    # Para el propósito de la validación del AG, nos enfocaremos en la restricción
-    # más simple que sí podemos verificar: x1 <= 100
+    # La restricción en el paper depende de X3 (demanda), que no es parte del individuo.
+    # Para la validación del AG, se utiliza la restricción más simple: x1 <= 100
+    
     # X4 es una constante
     X4 = 0.25
 
-    # Asumimos un valor promedio para Z (x3) para poder usar la fórmula completa
-    # Por ejemplo, la mitad del rango, 75. Esto es una simplificación necesaria.
+    # Se asume un valor promedio para Z (x3) para utiliza la fórmula completa
+    
     Z = 75 
     
-    # Aplicamos las condiciones del paper 
+    # Aplicar las condiciones del paper 
     condicion_x1 = x1 <= 100
     condicion_x2 = x2 <= (34 - (20.4 * x1) / Z + 17 * X4)
     
@@ -83,7 +83,7 @@ def cruce_personalizado(ind1, ind2):
     Aplica un cruce de dos puntos al primer gen (entero) y un
     cruce de mezcla (blend) al segundo gen (flotante).
     """
-    # Cruce para x1 (Entero): intercambia el valor con 50% de probabilidad
+    # Cruce para x1 (Entero): se intercambia el valor con 50% de probabilidad
     if random.random() < 0.5:
         ind1[0], ind2[0] = ind2[0], ind1[0]
 
@@ -111,31 +111,33 @@ def mutacion_personalizada(individual, low_int, up_int, mu, sigma, indpb):
 
     # Mutación para x2 (Flotante)
     if random.random() < indpb:
-        # Reutilizamos la lógica de mutación gaussiana para el flotante.
+        # Reutilizar la lógica de mutación gaussiana para el flotante.
         individual[1] += random.gauss(mu, sigma)
     
     return individual,
 
-# Registramos nuestra nueva función de mutación personalizada.
+# Registrar la nueva función de mutación personalizada.
 toolbox.register("mutate", mutacion_personalizada, 
                  low_int=LOW_X1_INT, up_int=UP_X1_INT, # Límites para el entero
                  mu=0, sigma=5, indpb=0.2) # Parámetros para el flotante
 
-# --- TAREA: Configurar y Comparar Métodos de Selección ---
+
+
+# --- Configurar y Comparar Métodos de Selección ---
 
 # a) Selección por Torneo (ST) - como se describe en el paper
 toolbox.register("select_tournament", tools.selTournament, tournsize=3)
 
-# b) Selección Sexual (SS) - Esto requiere una implementación más personalizada
+# b) Selección Sexual (SS) - Esta es una implementación más personalizada
 # La Selección Sexual en AG usualmente implica crear sub-poblaciones (sexos)
-# y restringir el cruce. Para una simulación simple, se podria crear una función
-# que imite el concepto, por ejemplo, eligiendo parejas basadas en alguna
+# y restringir el cruce. Para esta simulación simple, se crea una función
+# que imite el concepto, en esta caso, eligiendo parejas basadas en alguna
 # métrica de "compatibilidad" o simplemente dividiendo la población.
 
 # --- FUNCIÓN PARA EJECUTAR AG CON SELECCIÓN SEXUAL (SS) ---
 def ejecutar_ag_con_ss(pop_size=100, n_gen=50, cxpb=0.65, mutpb=0.08):
     """
-    Ejecuta el algoritmo genético usando una lógica de Selección Sexual personalizada.
+    Algoritmo genético usando una lógica de Selección Sexual personalizada.
     """
     print("\n--- Ejecutando AG con Selección Sexual (SS) ---")
 
@@ -153,22 +155,22 @@ def ejecutar_ag_con_ss(pop_size=100, n_gen=50, cxpb=0.65, mutpb=0.08):
     # Bucle de generaciones
     for g in range(n_gen):
         # 2. Selección de la siguiente generación
-        # Seleccionamos los mejores individuos para ser los padres de la siguiente generación.
+        # Seleccionar los mejores individuos para ser los padres de la siguiente generación.
         offspring = toolbox.select_tournament(pop, len(pop))
-        # Clonamos los seleccionados para no modificar los originales
+        # Se clona los seleccionados para no modificar los originales
         offspring = list(map(toolbox.clone, offspring))
 
         # 3. Cruce con lógica de Selección Sexual
-        # Dividimos la descendencia en dos mitades
+        # Se divide la descendencia en dos mitades
         mid_point = len(offspring) // 2
         machos = offspring[:mid_point]
         hembras = offspring[mid_point:]
 
-        # Aplicamos el cruce entre un "macho" y una "hembra"
+        # Aplicar el cruce entre un "macho" y una "hembra"
         for i in range(mid_point):
             if random.random() < cxpb:
                 toolbox.mate(machos[i], hembras[i])
-                # Liberamos la aptitud de los hijos modificados
+                # Liberar la aptitud de los hijos modificados
                 del machos[i].fitness.values
                 del hembras[i].fitness.values
         
@@ -192,7 +194,7 @@ def ejecutar_ag_con_ss(pop_size=100, n_gen=50, cxpb=0.65, mutpb=0.08):
 
         # Registro de estadísticas
         record = stats.compile(pop)
-        print(f"Gen {g+1}: Max Utilidad = {record['max']:.2f}, Avg Utilidad = {record['avg']:.2f}")
+        #print(f"Gen {g+1}: Max Utilidad = {record['max']:.2f}, Avg Utilidad = {record['avg']:.2f}")
 
     # 7. Resultados finales
     best_ind = tools.selBest(pop, 1)[0]
@@ -203,16 +205,13 @@ def ejecutar_ag_con_ss(pop_size=100, n_gen=50, cxpb=0.65, mutpb=0.08):
     return best_ind
 
 
-# --- 4. Ejecución del Algoritmo ---
+# --- Ejecución del Algoritmo ---
 
 def ejecutar_ag_con_seleccion(metodo_seleccion):
     """Ejecuta el AG usando un método de selección específico."""
     
     if metodo_seleccion == "torneo":
         toolbox.register("select", toolbox.select_tournament)
-    # Aquí se podría añadir la lógica para "sexual"
-    # elif metodo_seleccion == "sexual":
-    #     toolbox.register("select", mi_seleccion_sexual) 
     else:
         raise ValueError("Método de selección no reconocido.")
 
@@ -229,7 +228,7 @@ def ejecutar_ag_con_seleccion(metodo_seleccion):
     stats.register("avg", np.mean)
     stats.register("max", np.max)
     
-    # Ejecuta el algoritmo
+    # Ejecutar el algoritmo
     pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=CXPB, mutpb=MUTPB, ngen=NGEN, 
                                        stats=stats, verbose=True)
     
