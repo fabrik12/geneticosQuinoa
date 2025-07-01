@@ -19,11 +19,11 @@ toolbox = base.Toolbox()
 # Un 'individuo' en nuestro problema tiene 2 genes: x1 (tierra) y x2 (precio).
 # Definimos los límites para cada gen.
 # x1: [1, 100], x2: [11, ~30] (El precio debe ser > 11 para no generar pérdidas)
-LOW_X1, UP_X1 = 1.0, 100.0
+LOW_X1_INT, UP_X1_INT = 1, 100
 LOW_X2, UP_X2 = 11.0, 35.0 # Usamos un rango razonable para el precio
 
 # Atributo generador para cada gen
-toolbox.register("attr_x1", random.uniform, LOW_X1, UP_X1)
+toolbox.register("attr_x1", random.randint, LOW_X1_INT, UP_X1_INT)
 toolbox.register("attr_x2", random.uniform, LOW_X2, UP_X2)
 
 # Estructura del individuo y la población
@@ -76,9 +76,50 @@ def evaluar_individuo_con_penalizacion(individual):
 
 toolbox.register("evaluate", evaluar_individuo_con_penalizacion)
 
+
+# --- FUNCIÓN DE CRUCE PERSONALIZADO PARA TIPOS MIXTOS ---
+def cruce_personalizado(ind1, ind2):
+    """
+    Aplica un cruce de dos puntos al primer gen (entero) y un
+    cruce de mezcla (blend) al segundo gen (flotante).
+    """
+    # Cruce para x1 (Entero): intercambia el valor con 50% de probabilidad
+    if random.random() < 0.5:
+        ind1[0], ind2[0] = ind2[0], ind1[0]
+
+    # Cruce para x2 (Flotante): blend
+    alpha = 0.5
+    x2_1 = ind1[1]
+    x2_2 = ind2[1]
+    ind1[1] = (1 - alpha) * x2_1 + alpha * x2_2
+    ind2[1] = (1 - alpha) * x2_2 + alpha * x2_1
+
+    return ind1, ind2
+
 # Operadores de Cruce y Mutación (usando los parámetros del paper)
-toolbox.register("mate", tools.cxBlend, alpha=0.5) # Cruce de mezcla
-toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=5, indpb=0.2) # Mutación Gaussiana
+toolbox.register("mate", cruce_personalizado) # Cruce de mezcla
+
+# --- FUNCIÓN DE MUTACIÓN PERSONALIZADA PARA TIPOS MIXTOS ---
+def mutacion_personalizada(individual, low_int, up_int, mu, sigma, indpb):
+    """
+    Aplica una mutación de entero al primer gen (x1) y una
+    mutación gaussiana al segundo gen (x2).
+    """
+    # Mutación para x1 (Entero)
+    if random.random() < indpb:
+        individual[0] = random.randint(low_int, up_int)
+
+    # Mutación para x2 (Flotante)
+    if random.random() < indpb:
+        # Reutilizamos la lógica de mutación gaussiana para el flotante.
+        individual[1] += random.gauss(mu, sigma)
+    
+    return individual,
+
+# Registramos nuestra nueva función de mutación personalizada.
+toolbox.register("mutate", mutacion_personalizada, 
+                 low_int=LOW_X1_INT, up_int=UP_X1_INT, # Límites para el entero
+                 mu=0, sigma=5, indpb=0.2) # Parámetros para el flotante
 
 # --- TAREA: Configurar y Comparar Métodos de Selección ---
 
