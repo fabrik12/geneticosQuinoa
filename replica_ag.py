@@ -131,7 +131,77 @@ toolbox.register("select_tournament", tools.selTournament, tournsize=3)
 # y restringir el cruce. Para una simulación simple, se podria crear una función
 # que imite el concepto, por ejemplo, eligiendo parejas basadas en alguna
 # métrica de "compatibilidad" o simplemente dividiendo la población.
-# Por ahora, se centra en el Torneo, que es estándar en DEAP.
+
+# --- FUNCIÓN PARA EJECUTAR AG CON SELECCIÓN SEXUAL (SS) ---
+def ejecutar_ag_con_ss(pop_size=100, n_gen=50, cxpb=0.65, mutpb=0.08):
+    """
+    Ejecuta el algoritmo genético usando una lógica de Selección Sexual personalizada.
+    """
+    print("\n--- Ejecutando AG con Selección Sexual (SS) ---")
+
+    # 1. Inicialización
+    pop = toolbox.population(n=pop_size)
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    stats.register("avg", np.mean)
+    stats.register("max", np.max)
+
+    # Evaluar la población inicial
+    fitnesses = list(map(toolbox.evaluate, pop))
+    for ind, fit in zip(pop, fitnesses):
+        ind.fitness.values = fit
+
+    # Bucle de generaciones
+    for g in range(n_gen):
+        # 2. Selección de la siguiente generación
+        # Seleccionamos los mejores individuos para ser los padres de la siguiente generación.
+        offspring = toolbox.select_tournament(pop, len(pop))
+        # Clonamos los seleccionados para no modificar los originales
+        offspring = list(map(toolbox.clone, offspring))
+
+        # 3. Cruce con lógica de Selección Sexual
+        # Dividimos la descendencia en dos mitades
+        mid_point = len(offspring) // 2
+        machos = offspring[:mid_point]
+        hembras = offspring[mid_point:]
+
+        # Aplicamos el cruce entre un "macho" y una "hembra"
+        for i in range(mid_point):
+            if random.random() < cxpb:
+                toolbox.mate(machos[i], hembras[i])
+                # Liberamos la aptitud de los hijos modificados
+                del machos[i].fitness.values
+                del hembras[i].fitness.values
+        
+        # Unimos las dos mitades de nuevo en la descendencia
+        offspring = machos + hembras
+
+        # 4. Mutación
+        for mutant in offspring:
+            if random.random() < mutpb:
+                toolbox.mutate(mutant)
+                del mutant.fitness.values
+
+        # 5. Evaluación de nuevos individuos
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        fitnesses = map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
+
+        # 6. Reemplazo de la población
+        pop[:] = offspring
+
+        # Registro de estadísticas
+        record = stats.compile(pop)
+        print(f"Gen {g+1}: Max Utilidad = {record['max']:.2f}, Avg Utilidad = {record['avg']:.2f}")
+
+    # 7. Resultados finales
+    best_ind = tools.selBest(pop, 1)[0]
+    print("\nMejor individuo con selección sexual:")
+    print(f"  x1 (tierra) = {best_ind[0]:.2f}, x2 (precio) = {best_ind[1]:.2f}")
+    print(f"  Máxima utilidad = {best_ind.fitness.values[0]:.2f}")
+
+    return best_ind
+
 
 # --- 4. Ejecución del Algoritmo ---
 
@@ -175,6 +245,5 @@ if __name__ == '__main__':
     print("--- Ejecutando AG con Selección por Torneo (ST) ---")
     mejor_individuo_st, log_st = ejecutar_ag_con_seleccion("torneo")
     
-    # Aquí ejecutaríamos la versión con Selección Sexual para comparar.
-    # print("\n--- Ejecutando AG con Selección Sexual (SS) ---")
-    # mejor_individuo_ss, log_ss = ejecutar_ag_con_seleccion("sexual")
+    # Ejecución con Selección Sexual
+    ejecutar_ag_con_ss()
